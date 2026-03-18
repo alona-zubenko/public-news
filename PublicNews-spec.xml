@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<spec>
+  <name>PublicNews</name>
+  <domain>TelegramProjects</domain>
+  <folder>TelegramProjects/PublicNews</folder>
+  <github_repo>github.com/alona-zubenko/public-news (PUBLIC)</github_repo>
+
+  <purpose>
+    A minimal public GitHub repository that acts as a free GitHub Actions runner
+    for private Telegram bot code. The bot code lives in a private repo; this
+    repo only holds workflow YAML files, state JSON files, and a README.
+    No bot source code is committed here.
+  </purpose>
+
+  <trigger>
+    <!-- Primary: news posting -->
+    Schedule: every 20 minutes (cron "*/20 * * * *")       → runs news_bot.py
+    Schedule: 07:00 and 19:00 UTC daily (cron "0 7,19 * * *") → runs summary_bot.py
+    Schedule: every 12 hours (cron "0 */12 * * *")         → runs refresh_conflicts_cache.py
+    Manual (workflow_dispatch)                              → all workflows support manual run
+  </trigger>
+
+  <private_repo>
+    Source: github.com/alona-zubenko/telegram-war-news-bot (PRIVATE)
+    Access: PAT stored as secret PRIVATE_REPO_TOKEN (read-only scope: contents)
+    Clone method: git clone with token embedded in URL (standard GitHub Actions pattern)
+    Branch: main
+  </private_repo>
+
+  <state_management>
+    Strategy: Option A — state files live in PublicNews repo (not in private repo)
+    Files: posted.json, war_articles.json
+    Rationale: Simpler; state contains only URLs + article titles (not sensitive);
+               avoids needing write PAT to private repo.
+    After each run: workflow commits updated state files back to PublicNews/main
+    using standard github-actions[bot] pattern with [skip ci] tag.
+    Note: On first run, posted.json / war_articles.json are initialized as empty
+          JSON files if they don't exist yet.
+  </state_management>
+
+  <inputs>
+    <!-- Secrets required in PublicNews repo Settings → Secrets -->
+    PRIVATE_REPO_TOKEN      ← PAT with read access to alona-zubenko/telegram-war-news-bot
+    BOT_TOKEN               ← Telegram bot token
+    CHANNEL_ID              ← Telegram channel numeric ID
+    NEWSAPI_KEY             ← NewsAPI key
+    GROQ_API_KEY            ← Groq API key
+    CHANNEL_USERNAME        ← e.g. WarConflictsUA
+    EXPRESS_CHANNEL_ID      ← Express channel numeric ID
+    EXPRESS_CHANNEL_USERNAME ← Express channel username
+  </inputs>
+
+  <logic_steps>
+    <!-- Shared across all workflows -->
+    Step 1: Checkout PublicNews repo (to get state files: posted.json, war_articles.json)
+    Step 2: Set up Python 3.12
+    Step 3: Clone private repo into subdirectory ./bot/
+            → git clone https://${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/alona-zubenko/telegram-war-news-bot.git bot
+    Step 4: Install dependencies from ./bot/requirements.txt
+    Step 5: Copy state files from workspace root into ./bot/ (so bot reads them)
+            → cp posted.json war_articles.json ./bot/ (if they exist)
+    Step 6: Run bot script from ./bot/ directory with all env vars injected
+    Step 7: Copy updated state files back from ./bot/ to workspace root
+    Step 8: Commit state files to PublicNews repo with [skip ci] tag
+            (incremental commit, never force-push — TG_github_cron_disabled_after_force_push)
+  </logic_steps>
+
+  <workflows>
+    <!-- 1 -->
+    <workflow id="news_bot">
+      <file>.github/workflows/news_bot.yml</file>
+      <schedule>*/20 * * * *</schedule>
+      <script>news_bot.py</script>
+      <python>3.12</python>
+      <state_files>posted.json, war_articles.json</state_files>
+      <timeout_minutes>10</timeout_minutes>
+    </workflow>
+
+    <!-- 2 -->
+    <workflow id="war_summary">
+      <file>.github/workflows/war_summary.yml</file>
+      <schedule>0 7,19 * * *</schedule>
+      <script>summary_bot.py</script>
+      <python>3.11</python>
+      <state_files>war_articles.json</state_files>
+      <timeout_minutes>5</timeout_minutes>
+    </workflow>
+
+    <!-- 3 -->
+    <workflow id="refresh_cache">
+      <file>.github/workflows/refresh_conflicts_cache.yml</file>
+      <schedule>0 */12 * * *</schedule>
+      <script>refresh_conflicts_cache.py</script>
+      <python>3.12</python>
+      <state_files>posted.json</state_files>
+      <timeout_minutes>5</timeout_minutes>
+    </workflow>
+
+    <!-- 4 — manual only -->
+    <workflow id="delete_all">
+      <file>.github/workflows/delete_all.yml</file>
+      <schedule>workflow_dispatch only</schedule>
+      <script>delete_all.py</script>
+      <python>3.12</python>
+      <state_files>posted.json, war_articles.json (reset to empty)</state_files>
+      <timeout_minutes>5</timeout_minutes>
+    </workflow>
+  </workflows>
+
+  <files_in_repo>
+    .github/workflows/news_bot.yml
+    .github/workflows/war_summary.yml
+    .github/workflows/refresh_conflicts_cache.yml
+    .github/workflows/delete_all.yml
+    posted.json                ← state file, committed by workflows
+    war_articles.json          ← state file, committed by workflows
+    README.md                  ← explains repo purpose (no bot code here)
+  </files_in_repo>
+
+  <private_repo_changes>
+    Disable all 4 workflows in alona-zubenko/telegram-war-news-bot:
+    → GitHub UI: Actions → each workflow → "Disable workflow"
+    OR: add [skip ci] or rename workflow files to *.yml.disabled
+    Bot code and files remain untouched in private repo.
+  </private_repo_changes>
+
+  <edge_cases>
+    1. State files missing on first run → workflows initialize empty JSON before copy step
+    2. Private repo clone fails (bad PAT / expired token) → workflow fails fast with clear error
+    3. Cron disabled after force-push → NEVER force-push; always incremental commit (TG_github_cron_disabled_after_force_push)
+    4. Bot script writes state to ./bot/ but state must persist in PublicNews → explicit copy-back step
+    5. delete_all.py resets state → after run, commit empty posted.json + war_articles.json
+    6. refresh_conflicts_cache.py may not exist in private repo → check before calling, skip gracefully
+  </edge_cases>
+
+  <out_of_scope>
+    - Modifying news_bot.py or any bot source code
+    - Running EcoNewsBot from this repo (separate decision needed)
+    - Storing secrets in code or README
+    - Any bot logic changes
+  </out_of_scope>
+
+  <success_criteria>
+    Given news_bot workflow triggers at */20 →
+      PASS: news_bot.py runs, posts to Telegram, posted.json updated and committed to PublicNews
+    Given private repo PAT expires →
+      PASS: workflow fails at clone step with clear "authentication failed" error, not silently
+    Given force-push is attempted →
+      PASS: workflow uses incremental commit; cron schedule remains active (no re-registration needed)
+    Given first run (empty state files) →
+      PASS: bot initializes empty state, no crash
+    Given delete_all runs manually →
+      PASS: channel cleared; posted.json and war_articles.json reset to empty in PublicNews
+  </success_criteria>
+</spec>

@@ -1,0 +1,52 @@
+name: Delete All Channel Posts
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout PublicNews (state files)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone private bot repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/alona-zubenko/telegram-war-news-bot.git bot
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Delete all posts
+        working-directory: bot
+        env:
+          BOT_TOKEN:  ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        run: python delete_all.py
+
+      - name: Reset state files
+        run: |
+          echo "{}" > posted.json
+          echo "[]" > war_articles.json
+
+      - name: Commit reset state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add posted.json war_articles.json
+          git diff --staged --quiet || git commit -m "chore: reset state after delete_all [skip ci]"
+          git pull --rebase -X theirs origin main
+          git push
