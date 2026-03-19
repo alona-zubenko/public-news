@@ -6,6 +6,10 @@ on:
     - cron: "0 19 * * *"   # 21:00 Kyiv (UTC+2)
   workflow_dispatch:        # manual run
 
+concurrency:
+  group: war-summary-bot
+  cancel-in-progress: false    # never cancel a running summary mid-post
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 

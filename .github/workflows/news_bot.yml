@@ -2,8 +2,12 @@ name: War News Bot
 
 on:
   schedule:
-    - cron: "*/20 * * * *"   # every 20 minutes
-  workflow_dispatch:          # manual run
+    - cron: "0,20,40 * * * *"  # every 20 minutes — explicit form avoids GitHub cron batching delays
+  workflow_dispatch:             # manual run
+
+concurrency:
+  group: war-news-bot
+  cancel-in-progress: false    # never cancel a running bot mid-post
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
