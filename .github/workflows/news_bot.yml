@@ -1,9 +1,7 @@
 name: War News Bot
 
 on:
-  schedule:
-    - cron: "0,20,40 * * * *"  # every 20 minutes — explicit form avoids GitHub cron batching delays
-  workflow_dispatch:             # manual run
+  workflow_dispatch:  # triggered by cron-job.org every 15 minutes
 
 concurrency:
   group: war-news-bot
