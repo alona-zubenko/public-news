@@ -52,6 +52,7 @@ jobs:
           GROQ_API_KEY_ECONOMIC:    ${{ secrets.GROQ_API_KEY_ECONOMIC }}
           GROQ_API_KEY_ECOMONIC2:   ${{ secrets.GROQ_API_KEY_ECOMONIC2 }}
           FRED_API_KEY:             ${{ secrets.FRED_API_KEY }}
+          FMP_API_KEY:              ${{ secrets.FMP_API_KEY }}
         run: python macro_digest_bot.py
 
       - name: Copy updated state files back
