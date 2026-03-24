@@ -1,0 +1,71 @@
+name: Eco Summary
+
+on:
+  workflow_dispatch:  # triggered by cron-job.org at 07:00 UTC (10:00 Kyiv summer)
+
+concurrency:
+  group: eco-summary-bot
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  post-summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout PublicNews (state files)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clone private eco bot repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/alona-zubenko/telegram-eco-news-bot.git bot
+
+      - name: Install dependencies
+        run: pip install -r bot/requirements.txt
+
+      - name: Copy state files into bot directory
+        run: |
+          [ -f eco_posted.json ]   && cp eco_posted.json   bot/posted.json       || echo '{"urls":[],"titles":[]}' > bot/posted.json
+          [ -f eco_articles.json ] && cp eco_articles.json bot/eco_articles.json || echo '[]' > bot/eco_articles.json
+
+      - name: Run macro digest bot
+        working-directory: bot
+        env:
+          BOT_TOKEN:                ${{ secrets.BOT_TOKEN }}
+          CHANNEL_ID:               ${{ secrets.CHANNEL_ID }}
+          EXPRESS_CHANNEL_ID:       ${{ secrets.EXPRESS_CHANNEL_ID }}
+          EXPRESS_CHANNEL_USERNAME: ${{ secrets.EXPRESS_CHANNEL_USERNAME }}
+          CHANNEL_USERNAME:         ${{ secrets.CHANNEL_USERNAME }}
+          GROQ_API_KEY_ECONOMIC:    ${{ secrets.GROQ_API_KEY_ECONOMIC }}
+          GROQ_API_KEY_ECOMONIC2:   ${{ secrets.GROQ_API_KEY_ECOMONIC2 }}
+          FRED_API_KEY:             ${{ secrets.FRED_API_KEY }}
+        run: python macro_digest_bot.py
+
+      - name: Copy updated state files back
+        if: always()
+        run: |
+          cp bot/posted.json       eco_posted.json
+          cp bot/eco_articles.json eco_articles.json
+
+      - name: Commit state files
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add eco_posted.json eco_articles.json
+          git diff --staged --quiet || git commit -m "chore: reset eco_articles.json [skip ci]"
+          git pull --rebase -X theirs origin main
+          git push

@@ -1,0 +1,60 @@
+name: Eco Refresh Topics
+
+on:
+  workflow_dispatch:  # triggered by cron-job.org every 12 hours
+
+concurrency:
+  group: eco-refresh-topics
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-topics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout PublicNews (state files)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clone private eco bot repo
+        run: |
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com/alona-zubenko/telegram-eco-news-bot.git bot
+
+      - name: Install dependencies
+        run: pip install -r bot/requirements.txt
+
+      - name: Copy state file into bot directory
+        run: |
+          [ -f eco_posted.json ] && cp eco_posted.json bot/posted.json || echo '{"urls":[],"titles":[]}' > bot/posted.json
+
+      - name: Run refresh topics
+        working-directory: bot
+        env:
+          GROQ_API_KEY_ECONOMIC: ${{ secrets.GROQ_API_KEY_ECONOMIC }}
+        run: python refresh_topics.py
+
+      - name: Copy updated state file back
+        if: always()
+        run: |
+          cp bot/posted.json eco_posted.json
+
+      - name: Commit state file
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add eco_posted.json
+          git diff --staged --quiet || git commit -m "chore: refresh eco topics cache [skip ci]"
+          git pull --rebase -X theirs origin main
+          git push
