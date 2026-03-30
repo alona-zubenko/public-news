@@ -54,7 +54,7 @@ jobs:
       - name: Copy updated war_articles.json back
         if: always()
         run: |
-          cp bot/war_articles.json war_articles.json
+          [ -f bot/war_articles.json ] && cp bot/war_articles.json war_articles.json || echo "[]" > war_articles.json
 
       - name: Commit war_articles.json
         if: always()
