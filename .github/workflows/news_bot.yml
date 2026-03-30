@@ -55,8 +55,8 @@ jobs:
       - name: Copy updated state files back
         if: always()
         run: |
-          cp bot/posted.json       posted.json
-          cp bot/war_articles.json war_articles.json
+          [ -f bot/posted.json ]       && cp bot/posted.json       posted.json       || echo "{}" > posted.json
+          [ -f bot/war_articles.json ] && cp bot/war_articles.json war_articles.json || echo "[]" > war_articles.json
 
       - name: Commit state files
         if: always()
