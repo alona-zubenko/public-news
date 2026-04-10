@@ -47,6 +47,7 @@ jobs:
           NEWSAPI_KEY:             ${{ secrets.NEWSAPI_KEY }}
           GROQ_API_KEY:            ${{ secrets.GROQ_API_KEY }}
           GROQ_API_KEY_2:          ${{ secrets.GROQ_API_KEY_2 }}
+          GROQ_API_KEY_3:          ${{ secrets.GROQ_API_KEY_3 }}
           CHANNEL_USERNAME:        ${{ secrets.CHANNEL_USERNAME }}
           EXPRESS_CHANNEL_ID:      ${{ secrets.EXPRESS_CHANNEL_ID }}
           EXPRESS_CHANNEL_USERNAME: ${{ secrets.EXPRESS_CHANNEL_USERNAME }}

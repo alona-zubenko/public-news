@@ -51,6 +51,7 @@ jobs:
           CHANNEL_USERNAME:         ${{ secrets.CHANNEL_USERNAME }}
           GROQ_API_KEY_ECONOMIC:    ${{ secrets.GROQ_API_KEY_ECONOMIC }}
           GROQ_API_KEY_ECOMONIC2:   ${{ secrets.GROQ_API_KEY_ECOMONIC2 }}
+          GROQ_API_KEY_ECONOMIC3:   ${{ secrets.GROQ_API_KEY_ECONOMIC3 }}
           FRED_API_KEY:             ${{ secrets.FRED_API_KEY }}
           FMP_API_KEY:              ${{ secrets.FMP_API_KEY }}
         run: python macro_digest_bot.py

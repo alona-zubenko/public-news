@@ -49,6 +49,8 @@ jobs:
           EXPRESS_CHANNEL_USERNAME: ${{ secrets.EXPRESS_CHANNEL_USERNAME }}
           CHANNEL_USERNAME:        ${{ secrets.CHANNEL_USERNAME }}
           GROQ_API_KEY:            ${{ secrets.GROQ_API_KEY }}
+          GROQ_API_KEY_2:          ${{ secrets.GROQ_API_KEY_2 }}
+          GROQ_API_KEY_3:          ${{ secrets.GROQ_API_KEY_3 }}
         run: python summary_bot.py
 
       - name: Copy updated war_articles.json back
